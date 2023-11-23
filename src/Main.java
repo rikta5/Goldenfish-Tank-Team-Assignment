@@ -1,54 +1,54 @@
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Main {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws FileNotFoundException {
         String filePath = "src/Google Play Store Apps.csv";
 
+        List<String[]> lines = readCSVFile1(filePath);
+
         Map<String, Integer> categoryApps = new HashMap<>();
-        getCategoryApps(filePath, categoryApps);
+        getCategoryApps(lines, categoryApps);
         createFileNumberOfAppsPerCategory(categoryApps);
 
         Map<String, Integer> companyApps = new HashMap<>();
-        getCompanyApps(filePath, companyApps);
+        getCompanyApps(lines, companyApps);
         createFileTop100Companies(companyApps);
 
         Map<String, Developer> developers = new HashMap<>();
         getDevelopers(filePath, developers);
         createFileTopDevelopers(developers);
 
-        calculateAppsToBuy(filePath, 1000, "NumberOfAppsFor1000Dollars.csv");
-        calculateAppsToBuy(filePath, 10000, "NumberOfAppsFor10000Dollars.csv");
+        calculateAppsToBuy(lines, 1000, "NumberOfAppsFor1000Dollars.csv");
+        calculateAppsToBuy(lines, 10000, "NumberOfAppsFor10000Dollars.csv");
 
         Map<String, Long> downloadCounts = new HashMap<>();
-        calculateDownloads(filePath, downloadCounts);
+        calculateDownloads(lines, downloadCounts);
         writeDownloadsToFile(downloadCounts);
     }
 
-    private static void getCategoryApps(String filepath, Map<String, Integer> categoryApplications) throws FileNotFoundException {
-        File f = new File(filepath);
-        Scanner scanner = new Scanner(f);
-
-        if (scanner.hasNextLine()) {
-            scanner.nextLine();
+    private static List<String[]> readCSVFile1(String filePath) {
+        List<String[]> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            reader.readLine();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] values = customSplit(line);
+                lines.add(values);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+        return lines;
+    }
 
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-
-            String[] values = customSplit(line);
-
+    private static void getCategoryApps(List<String[]> lines, Map<String, Integer> categoryApplications) {
+        for (String[] values : lines) {
             String category = values[2].trim();
             categoryApplications.put(category, categoryApplications.getOrDefault(category, 0) + 1);
-
         }
-
-        scanner.close();
     }
 
     private static String[] customSplit(String line) {
@@ -73,7 +73,7 @@ public class Main {
         return values.toArray(new String[0]);
     }
 
-    public static void createFileNumberOfAppsPerCategory(Map<String, Integer> categoryCountApps) {
+    private static void createFileNumberOfAppsPerCategory(Map<String, Integer> categoryCountApps) {
         FileWriter output;
         try {
             output = new FileWriter("AppsPerCategory.csv");
@@ -89,27 +89,12 @@ public class Main {
         }
     }
 
-    private static void getCompanyApps(String filepath, Map<String, Integer> companyApplications) throws FileNotFoundException {
-        File f = new File(filepath);
-        Scanner scanner = new Scanner(f);
-
-        if (scanner.hasNextLine()) {
-            scanner.nextLine();
-        }
-
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-
-            String[] values = customSplit(line);
-
+    private static void getCompanyApps(List<String[]> lines, Map<String, Integer> companyApplications) {
+        for (String[] values : lines) {
             String appId = values[1].trim();
             String company = extractCompanyName(appId);
-
             companyApplications.put(company, companyApplications.getOrDefault(company, 0) + 1);
-
         }
-
-        scanner.close();
     }
 
     private static String extractCompanyName(String appId) {
@@ -167,7 +152,23 @@ public class Main {
                     String emailDomain = emailParts[1].toLowerCase();
                     String companyName = extractCompanyName(appId).toLowerCase();
 
-                    boolean isEmployee = emailDomain.contains(companyName);
+                    char[] domainChars = emailDomain.toCharArray();
+                    int start = 0;
+                    int end = domainChars.length - 1;
+
+                    while (start < end) {
+                        char temp = domainChars[start];
+                        domainChars[start] = domainChars[end];
+                        domainChars[end] = temp;
+
+                        start++;
+                        end--;
+                    }
+
+                    String reversedEmailDomain = new String(domainChars).toLowerCase();
+
+
+                    boolean isEmployee = reversedEmailDomain.contains(companyName);
 
                     Developer developer = developers.get(developerEmail);
 
@@ -219,33 +220,19 @@ public class Main {
         }
     }
 
-    private static void calculateAppsToBuy(String filepath, double budget, String outputFileName) throws IOException {
-        File f = new File(filepath);
-        Scanner scanner = new Scanner(f);
-
-        if (scanner.hasNextLine()) {
-            scanner.nextLine();
-        }
-
+    private static void calculateAppsToBuy(List<String[]> lines, double budget, String outputFileName) {
         List<App> apps = new ArrayList<>();
 
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            String[] values = customSplit(line);
+        for (String[] values : lines) {
             String priceString = values[9].trim().replace("$", "")
                                                  .replace("M", "")
                                                  .replace(",", "");
-
             try {
                 Double price = Double.parseDouble(priceString);
                 apps.add(new App(price));
-            } catch (NumberFormatException e) {
-                continue;
+            } catch (NumberFormatException ignored) {
             }
-
         }
-
-        scanner.close();
 
         List<App> sortedapps = apps.stream().sorted().toList();
 
@@ -271,18 +258,8 @@ public class Main {
         }
     }
 
-    private static void calculateDownloads(String filepath, Map<String, Long> downloadCounts) throws FileNotFoundException {
-        File f = new File(filepath);
-        Scanner scanner = new Scanner(f);
-
-        if (scanner.hasNextLine()) {
-            scanner.nextLine();
-        }
-
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            String[] values = customSplit(line);
-
+    private static void calculateDownloads(List<String[]> lines, Map<String, Long> downloadCounts) {
+        for (String[] values : lines) {
             String installs = values[5].trim();
 
             if (installs.startsWith("\"") && installs.endsWith("\"")) { //za slucaj da je vrijednost izmedju navodnika
@@ -293,7 +270,6 @@ public class Main {
             if(installs.endsWith("+")) installs = installs.replace("+", "");
 
             try {
-
             boolean isFree = Boolean.parseBoolean(values[8].strip());
 
                 if (isFree) {
@@ -301,12 +277,8 @@ public class Main {
                 }   else {
                     downloadCounts.put("Paid Downloads", downloadCounts.getOrDefault("Paid Downloads", 0L) + Long.parseLong(installs));
                 }
-            }catch(NumberFormatException e){
-                continue;
-            }
+            }catch(NumberFormatException ignored){}
         }
-
-        scanner.close();
     }
 
     private static void writeDownloadsToFile(Map<String, Long> downloadCounts) {
