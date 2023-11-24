@@ -4,10 +4,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Main {
-    public static void main(String[] args) throws FileNotFoundException {
+    public static void main(String[] args) {
         String filePath = "src/Google Play Store Apps.csv";
 
-        List<String[]> lines = readCSVFile1(filePath); // 4GB memory allocation needed for VM
+        List<String[]> lines = readCSVFile1(filePath);
 
         Map<String, Integer> categoryApps = new HashMap<>();
         getCategoryApps(lines, categoryApps);
@@ -18,7 +18,7 @@ public class Main {
         createFileTop100Companies(companyApps);
 
         Map<String, Developer> developers = new HashMap<>();
-        getDevelopers(filePath, developers);
+        getDevelopers(lines, developers);
         createFileTopDevelopers(developers);
 
         calculateAppsToBuy(lines, 1000, "NumberOfAppsFor1000Dollars.csv");
@@ -92,12 +92,12 @@ public class Main {
     private static void getCompanyApps(List<String[]> lines, Map<String, Integer> companyApplications) {
         for (String[] values : lines) {
             String appId = values[1].trim();
-            String company = extractForCompanyNamePart1(appId);
+            String company = extractCompanyName(appId);
             companyApplications.put(company, companyApplications.getOrDefault(company, 0) + 1);
         }
     }
 
-    private static String extractForCompanyNamePart1(String appId) {
+    private static String extractCompanyName(String appId) {
 
         String[] parts = appId.split("\\.");
         if (parts.length >= 2) {
@@ -107,7 +107,7 @@ public class Main {
         }
     }
 
-    private static String extractCompanyName(String appId) {
+    private static String extractCompanyNameForDevelopers(String appId) {
 
         String[] parts = appId.split("\\.");
         if (parts.length >= 2) {
@@ -140,27 +140,17 @@ public class Main {
         }
     }
 
-    private static void getDevelopers(String filepath, Map<String, Developer> developers) throws FileNotFoundException {
-        File f = new File(filepath);
-        Scanner scanner = new Scanner(f);
-
-        if (scanner.hasNextLine()) {
-            scanner.nextLine();
-        }
-
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            String[] values = customSplitDevelopers(line);
-
+    private static void getDevelopers(List<String[]> lines, Map<String, Developer> developers) {
+        for (String[] values : lines){
             String appId = values[1].trim();
-            String developerEmail = values[14].trim();
+            String developerEmail = values[15].trim();
             String developerID = values[13].trim();
 
             if (!developerEmail.isEmpty()) {
                 String[] emailParts = developerEmail.split("@");
                 if (emailParts.length == 2) {
                     String emailDomain = emailParts[1].toLowerCase();
-                    String companyName = extractCompanyName(appId).toLowerCase();
+                    String companyName = extractCompanyNameForDevelopers(appId).toLowerCase();
 
                     char[] domainChars = emailDomain.toCharArray();
                     int start = 0;
@@ -191,22 +181,6 @@ public class Main {
                 }
             }
         }
-
-        scanner.close();
-    }
-
-    private static String[] customSplitDevelopers(String line) {
-
-        Pattern pattern = Pattern.compile("\"([^\"]*)\"|([^,]+)");
-        Matcher matcher = pattern.matcher(line);
-
-        List<String> values = new ArrayList<>();
-
-        while (matcher.find()) {
-            values.add(matcher.group().trim());
-        }
-
-        return values.toArray(new String[0]);
     }
 
     private static void createFileTopDevelopers(Map<String, Developer> developers) {
