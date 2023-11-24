@@ -7,7 +7,7 @@ public class Main {
     public static void main(String[] args) throws FileNotFoundException {
         String filePath = "src/Google Play Store Apps.csv";
 
-        List<String[]> lines = readCSVFile1(filePath);
+        List<String[]> lines = readCSVFile1(filePath); // 4GB memory allocation needed for VM
 
         Map<String, Integer> categoryApps = new HashMap<>();
         getCategoryApps(lines, categoryApps);
@@ -92,8 +92,18 @@ public class Main {
     private static void getCompanyApps(List<String[]> lines, Map<String, Integer> companyApplications) {
         for (String[] values : lines) {
             String appId = values[1].trim();
-            String company = extractCompanyName(appId);
+            String company = extractForCompanyNamePart1(appId);
             companyApplications.put(company, companyApplications.getOrDefault(company, 0) + 1);
+        }
+    }
+
+    private static String extractForCompanyNamePart1(String appId) {
+
+        String[] parts = appId.split("\\.");
+        if (parts.length >= 2) {
+            return parts[1];
+        } else {
+            return appId;
         }
     }
 
